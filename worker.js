@@ -11,7 +11,9 @@ const processJob = async (job) => {
   if (handler){
     console.log(`Processing job: ${job.name}`);
     await handler(job);
+    console.log("Finished processing");
   }
+
 };
 
 const worker = new Worker(queueName, processJob, { connection: redisOptions });

@@ -3,11 +3,14 @@ import { UnstructuredClient } from "unstructured-client";
 import { Strategy } from "unstructured-client/sdk/models/shared/index.js";
 import fs from "fs";
 
+import { Chunk } from "./chunk.js";
+
 
 class Unstructured{
 
+    #client;
+
     constructor(key){
-        console.log(key);
         this.client = new UnstructuredClient({
             serverURL: "https://api.unstructured.io/general/v0/general",
             security: {
@@ -20,14 +23,15 @@ class Unstructured{
     ingest_document(filepath){
         return new Promise((resolve, reject) => {
 
-            console.log("reading file from", filepath);
+            console.log("Reading file from", filepath);
 
             try{
                 var data = fs.readFileSync(filepath);
-            }catch (error) {
-                reject("Failed");
+            }catch (e) {
+                reject(e);
             }
 
+            let chunks = [];
             this.client.general.partition({
                 partitionParameters: {
                     files: {
@@ -38,10 +42,19 @@ class Unstructured{
                 strategy: Strategy.Auto,
             }).then((response) => {
                 if (response.statusCode == 200){
-                    resolve(response.elements);
+
+                    response.elements.forEach((element) => {
+                        chunks.push(new Chunk(
+                            element.element_id,
+                            element.text,
+                            element.metadata.filename
+                        ));
+                    });
+
+                    resolve(chunks);
                 }
             }).catch((e) => {
-                reject("Failed");
+                reject(e);
             });
 
         });

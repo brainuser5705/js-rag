@@ -1,6 +1,5 @@
 import fs from "fs";
 import { addNewFiles } from "./queue.js";
 
-
 let files = fs.readdirSync("C:\\Users\\codeu\\Documents\\afrl\\rag-js\\data");
-addNewFiles(files)
+addNewFiles(files);
