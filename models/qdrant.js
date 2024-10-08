@@ -7,7 +7,7 @@ class Qdrant{
     #embeddingModel;
 
     constructor(embeddingModel){
-        this.#client = new QdrantClient({url: 'http://127.0.0.1:6333'});
+        this.#client = new QdrantClient({url: 'http://qdrant:6333'});
         this.#embeddingModel = embeddingModel
     }
 
@@ -32,7 +32,7 @@ class Qdrant{
             }
             
             return true;
-        }catch{
+        }catch(e){
             console.log(`Something went wrong when creating collection: ${e}`);
             return false;
         }

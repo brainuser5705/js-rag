@@ -6,7 +6,7 @@ import { EmbeddingModel } from "./models/embedding.js";
 import dotenv from "dotenv";
 dotenv.config();
 
-export const redisOptions = { host: "localhost", port: 6379 };
+export const redisOptions = { host: "redis", port: 6379 };
 export const queueName = "uploadQueue"
 
 const uploadQueue = new Queue(queueName, { connection: redisOptions });
@@ -18,7 +18,7 @@ var unstructured = new Unstructured(UNSTRUCTURED_API_KEY);
 var embeddingModel = new EmbeddingModel(LM_STUDIOS_SERVER_URL);
 var qdrant = new Qdrant(embeddingModel);
 
-const UPLOAD_DIR = "C:\\Users\\codeu\\Documents\\afrl\\rag-js\\data\\";
+const UPLOAD_DIR = "data/";
 
 const COLLECTION_NAME = "test";
 
