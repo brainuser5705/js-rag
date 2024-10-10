@@ -6,7 +6,7 @@ import { EmbeddingModel } from "./models/embedding.js";
 import dotenv from "dotenv";
 dotenv.config();
 
-export const redisOptions = { host: "redis", port: 6379 };
+export const redisOptions = { host: process.env.HOST, port: 6379 };
 export const queueName = "uploadQueue"
 
 const uploadQueue = new Queue(queueName, { connection: redisOptions });

@@ -25,6 +25,7 @@ services:
       - UNSTRUCTURED_API_KEY=${UNSTRUCTURED_API_KEY}
       - UNSTRUCTURED_API_URL=${UNSTRUCTURED_API_URL}
       - LM_STUDIOS_SERVER_URL=${LM_STUDIOS_SERVER_URL}
+      - HOST=redis
     depends_on:
       - redis
       - qdrant
