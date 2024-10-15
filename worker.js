@@ -1,29 +1,50 @@
-import { Worker } from "bullmq";
-import { uploadDocument, queueName, redisOptions } from "./queue.js";
+import { Worker, Queue } from "bullmq";
+import { addFile, unstructuredHandler, qdrantHandler, parentQueueName, childrenQueueName, redisOptions } from "./queue.js";
 
 const jobHandlers = {
-  uploadDocument: uploadDocument
+  // uploadDocument: uploadDocument,
+  addFile: addFile,
+  unstructured: unstructuredHandler,
+  qdrant: qdrantHandler
 };
+
+// job handlers for each step and parent
 
 const processJob = async (job) => {
   const handler = jobHandlers[job.name];
 
   if (handler){
-    console.log(`Processing job: ${job.name}`);
     await handler(job);
-    console.log("Finished processing");
   }
 
 };
 
-const worker = new Worker(queueName, processJob, { connection: redisOptions });
+const childrenWorker = new Worker(childrenQueueName, processJob, { connection: redisOptions });
+const parentWorker = new Worker(parentQueueName, processJob, { connection: redisOptions });
 
-worker.on("completed", (job) => {
-  console.log(`${job.id} has completed!`);
+childrenWorker.on("completed", (job) => {
+  console.log(`Child ${job.name} has completed!`);
 });
 
-worker.on("failed", (job, err) => {
-  console.log(`${job.id} has failed with ${err.message}`);
+childrenWorker.on("failed", (job, err) => {
+  console.log(`Child ${job.name} has failed with ${err.message}`);
+});
+
+// childrenWorker.on("progress", (job, progress) => {
+//   let parentQueue = new Queue(parentQueueName);
+//   let parentJob = parentQueue.getJob(job.parent.id);
+//   parentJob.data = progress;
+//   console.log(parentJob);
+//   console.log(parentJob.name + ": "+ parentJob.data);
+//   console.log(`Progress is: ${progress}`);
+// });
+
+parentWorker.on("completed", (job) => {
+  console.log(`Parent ${job.name} has completed!`);
+});
+
+parentWorker.on("failed", (job, err) => {
+  console.log(`Parent ${job.name} has failed with ${err.message}`);
 });
 
 console.log("Worker started!");
