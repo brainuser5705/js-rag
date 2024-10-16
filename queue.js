@@ -8,7 +8,9 @@ import dotenv from "dotenv";
 dotenv.config();
 
 export const redisOptions = { host: process.env.HOST, port: 6379 };
-export const childrenQueueName = "stepsQueue";
+export const qdrantQueueName = "qdrantQueue";
+export const unstructuredQueueName = "unstructuredQueue";
+// export const childrenQueueName = "stepsQueue";
 export const parentQueueName = "uploadQueue";
 
 // const stepsQueue = new Queue(childrenQueueName, { connection: redisOptions });
@@ -85,8 +87,8 @@ export const addNewFiles = async (files) => {
       name: 'addFile',
       queueName: parentQueueName,
       children: [
-        { name: 'qdrant', queueName: childrenQueueName, children: [
-          { name: 'unstructured', data: {filepath: file}, queueName: childrenQueueName }
+        { name: 'qdrant', queueName: qdrantQueueName, children: [
+          { name: 'unstructured', data: {filepath: file}, queueName: unstructuredQueueName }
         ]}
       ]
     });
