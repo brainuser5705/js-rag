@@ -36,17 +36,23 @@ export const addFile = async(job) => {
 }
 
 export const unstructuredHandler = async(job) => {
+
   let filepath = job.data.filepath;
+
   console.log("===\tIngesting document", filepath);
   let chunks = await unstructured.ingest_document(UPLOAD_DIR + filepath);
+  let chunkJsons = [];
+  chunks.forEach((chunk) => {
+    chunkJsons.push(JSON.stringify(chunk));
+  });
   console.log(`===\tFinished ingesting document ${filepath}`);
   console.log("Unstructured Job");
-  return "test";
+  return chunkJsons;
 }
 
 export const qdrantHandler = async (job) => {
-  let unstructuredJob = await job.getChildrenValues();
-  console.log(unstructuredJob);
+  let unstructuredChunks = await job.getChildrenValues();
+  console.log(Object.values(unstructuredChunks));
   console.log("Qdrant Job");
 }
 
