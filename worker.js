@@ -14,7 +14,8 @@ const processJob = async (job) => {
   const handler = jobHandlers[job.name];
 
   if (handler){
-    await handler(job);
+    let result = await handler(job);
+    return result;
   }
 
 };
@@ -29,15 +30,6 @@ childrenWorker.on("completed", (job) => {
 childrenWorker.on("failed", (job, err) => {
   console.log(`Child ${job.name} has failed with ${err.message}`);
 });
-
-// childrenWorker.on("progress", (job, progress) => {
-//   let parentQueue = new Queue(parentQueueName);
-//   let parentJob = parentQueue.getJob(job.parent.id);
-//   parentJob.data = progress;
-//   console.log(parentJob);
-//   console.log(parentJob.name + ": "+ parentJob.data);
-//   console.log(`Progress is: ${progress}`);
-// });
 
 parentWorker.on("completed", (job) => {
   console.log(`Parent ${job.name} has completed!`);

@@ -36,15 +36,17 @@ export const addFile = async(job) => {
 }
 
 export const unstructuredHandler = async(job) => {
-  // Partition the document
-  // let filepath = job.data.filepath;
-  // console.log("===\tIngesting document", filepath);
-  // let chunks = await unstructured.ingest_document(UPLOAD_DIR + filepath);
-  // console.log(`===\tFinished ingesting document ${filepath}`);
-  console.log("Unstructured Job")
+  let filepath = job.data.filepath;
+  console.log("===\tIngesting document", filepath);
+  let chunks = await unstructured.ingest_document(UPLOAD_DIR + filepath);
+  console.log(`===\tFinished ingesting document ${filepath}`);
+  console.log("Unstructured Job");
+  return "test";
 }
 
 export const qdrantHandler = async (job) => {
+  let unstructuredJob = await job.getChildrenValues();
+  console.log(unstructuredJob);
   console.log("Qdrant Job");
 }
 
@@ -81,28 +83,11 @@ export const addNewFiles = async (files) => {
       name: 'addFile',
       queueName: parentQueueName,
       children: [
-        { name: 'unstructured', data: {filepath: file}, queueName: childrenQueueName },
-        { name: 'qdrant', queueName: childrenQueueName },
+        { name: 'qdrant', queueName: childrenQueueName, children: [
+          { name: 'unstructured', data: {filepath: file}, queueName: childrenQueueName }
+        ]}
       ]
     });
   });
 
 }
-
-
-// export const addNewFiles = async (files) => {
-
-//   await uploadQueue.drain(true);
-
-//   files.forEach(file => {
-//     addJob({
-//       name: "uploadDocument",
-//       data: {
-//         filepath: file
-//       }
-//     });
-//   });
-
-// }
-
-
