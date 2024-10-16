@@ -26,6 +26,18 @@ class Chunk{
         this.#filepath;
     }
 
+    toJSON() {
+        return {
+            id: this.#id,
+            text: this.#text,
+            filepath: this.#filepath
+        };
+    }
+
+    toString(){
+        return `{id: ${this.#id}, text: ${this.#text}, filepath: ${this.#filepath}}`;
+    }
+
 }
 
 export {

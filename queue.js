@@ -2,6 +2,7 @@ import { FlowProducer, Queue } from "bullmq";
 import { Unstructured } from "./models/unstructured.js";
 import { Qdrant } from "./models/qdrant.js"
 import { EmbeddingModel } from "./models/embedding.js";
+import { Chunk } from "./models/chunk.js";
 
 import dotenv from "dotenv";
 dotenv.config();
@@ -22,13 +23,8 @@ var embeddingModel = new EmbeddingModel(LM_STUDIOS_SERVER_URL);
 var qdrant = new Qdrant(embeddingModel);
 
 const UPLOAD_DIR = "data/";
-
 const COLLECTION_NAME = "test";
 
-
-async function addJob(job){
-  await uploadQueue.add(job.name, job.data, { removeOnComplete: true, removeOnFail: true });
-}
 
 export const addFile = async(job) => {
   let values = await job.getChildrenValues();
@@ -36,51 +32,51 @@ export const addFile = async(job) => {
 }
 
 export const unstructuredHandler = async(job) => {
-
   let filepath = job.data.filepath;
-
   console.log("===\tIngesting document", filepath);
   let chunks = await unstructured.ingest_document(UPLOAD_DIR + filepath);
   let chunkJsons = [];
   chunks.forEach((chunk) => {
-    chunkJsons.push(JSON.stringify(chunk));
+    let json = JSON.stringify(chunk);
+    chunkJsons.push(json);
   });
   console.log(`===\tFinished ingesting document ${filepath}`);
-  console.log("Unstructured Job");
   return chunkJsons;
 }
 
 export const qdrantHandler = async (job) => {
-  let unstructuredChunks = await job.getChildrenValues();
-  console.log(Object.values(unstructuredChunks));
-  console.log("Qdrant Job");
+  console.log("===\tInserting chunks into Qdrant");
+
+  // Create collection
+  let created_collection = await qdrant.create_collection_if_not_exists(COLLECTION_NAME);
+
+  // unstructured job is child of qdrant job
+  let unstructuredChunks = Object.values(await job.getChildrenValues())[0];
+
+  // Put chunks in collection
+  if (created_collection){
+    unstructuredChunks.forEach(async (chunkJson) => {
+
+      // convert to Chunk object
+      let chunkObj = JSON.parse(chunkJson);
+      let chunk = new Chunk(chunkObj.id, chunkObj.text, chunkObj.filepath);
+
+      try{
+        // insert into Qdrant
+        await qdrant.insert_chunk(COLLECTION_NAME, chunk);
+        console.log(`Inserted ${chunk.id} into Qdrant`);
+
+      }catch(e){
+        console.log(`Could not insert chunk ${chunk.id} into Qdrant: ${e}`);
+      }
+
+    });
+
+  }
+
+  console.log("===\tFinished inserting into Qdrant");
+
 }
-
-
-// export const uploadDocument = async (job) => {
-
-//   // Partition the document
-//   let filepath = job.data.filepath;
-//   console.log("===\tIngesting document", filepath);
-//   let chunks = await unstructured.ingest_document(UPLOAD_DIR + filepath);
-//   console.log(`===\tFinished ingesting document ${filepath}`);
-
-//   // Create collection
-//   let created_collection = await qdrant.create_collection_if_not_exists(COLLECTION_NAME);
-
-//   // Put chunks in collection
-//   if (created_collection){
-//     chunks.forEach(async (chunk) => {
-//       try{
-//         await qdrant.insert_chunk(COLLECTION_NAME, chunk);
-//         console.log(`Inserted ${chunk.id} into Qdrant`);
-//       }catch(e){
-//         console.log(`Could not insert chunk ${chunk.id} into Qdrant: ${e}`);
-//       }
-//     });
-//   }
-
-// }
 
 export const addNewFiles = async (files) => {
 

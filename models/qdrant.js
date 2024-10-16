@@ -7,7 +7,7 @@ class Qdrant{
     #embeddingModel;
 
     constructor(embeddingModel){
-        this.#client = new QdrantClient({url: 'http://qdrant:6333'});
+        this.#client = new QdrantClient({url: 'http://localhost:6333'});
         this.#embeddingModel = embeddingModel
     }
 
