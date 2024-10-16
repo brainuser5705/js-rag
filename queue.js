@@ -1,7 +1,8 @@
 import { FlowProducer, Queue } from "bullmq";
 import { Unstructured } from "./models/unstructured.js";
-import { Qdrant } from "./models/qdrant.js"
+import { Qdrant } from "./models/qdrant.js";
 import { EmbeddingModel } from "./models/embedding.js";
+import { Chunk } from "./models/chunk.js";
 
 import dotenv from "dotenv";
 dotenv.config();
@@ -52,8 +53,13 @@ export const unstructuredHandler = async(job) => {
   let filepath = job.data.filepath;
   console.log("===\tIngesting document", filepath);
   let chunks = await unstructured.ingest_document(UPLOAD_DIR + filepath);
+  let chunkJsons = [];
+  chunks.forEach((chunk) => {
+    let json = JSON.stringify(chunk);
+    chunkJsons.push(json);
+  });
   // Putting chunk data into shared parent data for qdrant sibling job to use
-  await updateParentData(job.parent.id, "unstructuredChunks", "testing");
+  await updateParentData(job.parent.id, "unstructuredChunks", chunkJsons);
   console.log(`===\tFinished ingesting document ${filepath}`);
 }
 
@@ -62,23 +68,31 @@ export const qdrantHandler = async (job) => {
   console.log("===\tInserting chunks into Qdrant");
 
   // Create collection
-  // let created_collection = await qdrant.create_collection_if_not_exists(COLLECTION_NAME);
+  let created_collection = await qdrant.create_collection_if_not_exists(COLLECTION_NAME);
 
   let parentData = await getParentData(job.parent.id);
-  let chunks = parentData.unstructuredChunks;
-  console.log("Chunks: " + chunks);
+  let chunkJsons = parentData.unstructuredChunks;
   
-  // // Put chunks in collection
-  // if (created_collection){
-  //   chunks.forEach(async (chunk) => {
-  //     try{
-  //       await qdrant.insert_chunk(COLLECTION_NAME, chunk);
-  //       console.log(`Inserted ${chunk.id} into Qdrant`);
-  //     }catch(e){
-  //       console.log(`Could not insert chunk ${chunk.id} into Qdrant: ${e}`);
-  //     }
-  //   });
-  // }
+  // Put chunks in collection
+  if (created_collection){
+    chunkJsons.forEach(async (chunkJson) => {
+
+      // convert to Chunk object
+      let chunkObj = JSON.parse(chunkJson);
+      let chunk = new Chunk(chunkObj.id, chunkObj.text, chunkObj.filepath);
+
+      try{
+        // insert into Qdrant
+        await qdrant.insert_chunk(COLLECTION_NAME, chunk);
+        console.log(`Inserted ${chunk.id} into Qdrant`);
+
+      }catch(e){
+        console.log(`Could not insert chunk ${chunk.id} into Qdrant: ${e}`);
+      }
+
+    });
+
+  }
 
   console.log("===\tFinished inserting into Qdrant");
 }
