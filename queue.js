@@ -10,8 +10,6 @@ export const redisOptions = { host: process.env.HOST, port: 6379 };
 export const childrenQueueName = "stepsQueue";
 export const parentQueueName = "uploadQueue";
 
-// const stepsQueue = new Queue(childrenQueueName, { connection: redisOptions });
-// const uploadQueue = new Queue(parentQueueName, { connection: redisOptions });
 const flowProducer = new FlowProducer();
 
 const UNSTRUCTURED_API_KEY = process.env.UNSTRUCTURED_API_KEY;
@@ -22,57 +20,68 @@ var embeddingModel = new EmbeddingModel(LM_STUDIOS_SERVER_URL);
 var qdrant = new Qdrant(embeddingModel);
 
 const UPLOAD_DIR = "data/";
-
 const COLLECTION_NAME = "test";
 
+const parentQueue = new Queue(parentQueueName);
 
-async function addJob(job){
-  await uploadQueue.add(job.name, job.data, { removeOnComplete: true, removeOnFail: true });
+async function updateParentData(parentId, key, value){
+  try{
+    let parentJob = await parentQueue.getJob(parentId);
+    let parentData = parentJob.data;
+    parentData[key] = value;
+    await parentJob.updateData(parentData);
+  }catch(e){
+    console.log(e);
+  }
+}
+
+async function getParentData(parentId){
+  try{
+    let parentJob = await parentQueue.getJob(parentId);
+    return parentJob.data;
+  }catch(e){
+    console.log(e);
+  }
 }
 
 export const addFile = async(job) => {
-  let values = await job.getChildrenValues();
-  console.log(values);
+  console.log("Finished parent job");
 }
 
 export const unstructuredHandler = async(job) => {
-  // Partition the document
-  // let filepath = job.data.filepath;
-  // console.log("===\tIngesting document", filepath);
-  // let chunks = await unstructured.ingest_document(UPLOAD_DIR + filepath);
-  // console.log(`===\tFinished ingesting document ${filepath}`);
-  console.log("Unstructured Job")
+  let filepath = job.data.filepath;
+  console.log("===\tIngesting document", filepath);
+  let chunks = await unstructured.ingest_document(UPLOAD_DIR + filepath);
+  // Putting chunk data into shared parent data for qdrant sibling job to use
+  await updateParentData(job.parent.id, "unstructuredChunks", "testing");
+  console.log(`===\tFinished ingesting document ${filepath}`);
 }
 
 export const qdrantHandler = async (job) => {
-  console.log("Qdrant Job");
+
+  console.log("===\tInserting chunks into Qdrant");
+
+  // Create collection
+  // let created_collection = await qdrant.create_collection_if_not_exists(COLLECTION_NAME);
+
+  let parentData = await getParentData(job.parent.id);
+  let chunks = parentData.unstructuredChunks;
+  console.log("Chunks: " + chunks);
+  
+  // // Put chunks in collection
+  // if (created_collection){
+  //   chunks.forEach(async (chunk) => {
+  //     try{
+  //       await qdrant.insert_chunk(COLLECTION_NAME, chunk);
+  //       console.log(`Inserted ${chunk.id} into Qdrant`);
+  //     }catch(e){
+  //       console.log(`Could not insert chunk ${chunk.id} into Qdrant: ${e}`);
+  //     }
+  //   });
+  // }
+
+  console.log("===\tFinished inserting into Qdrant");
 }
-
-
-// export const uploadDocument = async (job) => {
-
-//   // Partition the document
-//   let filepath = job.data.filepath;
-//   console.log("===\tIngesting document", filepath);
-//   let chunks = await unstructured.ingest_document(UPLOAD_DIR + filepath);
-//   console.log(`===\tFinished ingesting document ${filepath}`);
-
-//   // Create collection
-//   let created_collection = await qdrant.create_collection_if_not_exists(COLLECTION_NAME);
-
-//   // Put chunks in collection
-//   if (created_collection){
-//     chunks.forEach(async (chunk) => {
-//       try{
-//         await qdrant.insert_chunk(COLLECTION_NAME, chunk);
-//         console.log(`Inserted ${chunk.id} into Qdrant`);
-//       }catch(e){
-//         console.log(`Could not insert chunk ${chunk.id} into Qdrant: ${e}`);
-//       }
-//     });
-//   }
-
-// }
 
 export const addNewFiles = async (files) => {
 
@@ -88,21 +97,3 @@ export const addNewFiles = async (files) => {
   });
 
 }
-
-
-// export const addNewFiles = async (files) => {
-
-//   await uploadQueue.drain(true);
-
-//   files.forEach(file => {
-//     addJob({
-//       name: "uploadDocument",
-//       data: {
-//         filepath: file
-//       }
-//     });
-//   });
-
-// }
-
-
