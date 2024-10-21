@@ -8,7 +8,6 @@ import dotenv from "dotenv";
 dotenv.config();
 
 export const redisOptions = { host: process.env.HOST, port: 6379 };
-
 export const qdrantQueueName = "qdrantQueue";
 export const unstructuredQueueName = "unstructuredQueue";
 // export const childrenQueueName = "stepsQueue";
@@ -28,26 +27,6 @@ const COLLECTION_NAME = "test";
 
 const parentQueue = new Queue(parentQueueName);
 
-async function updateParentData(parentId, key, value){
-  try{
-    let parentJob = await parentQueue.getJob(parentId);
-    let parentData = parentJob.data;
-    parentData[key] = value;
-    await parentJob.updateData(parentData);
-  }catch(e){
-    console.log(e);
-  }
-}
-
-async function getParentData(parentId){
-  try{
-    let parentJob = await parentQueue.getJob(parentId);
-    return parentJob.data;
-  }catch(e){
-    console.log(e);
-  }
-}
-
 export const addFile = async(job) => {
   console.log("Finished parent job");
 }
@@ -61,24 +40,22 @@ export const unstructuredHandler = async(job) => {
     let json = JSON.stringify(chunk);
     chunkJsons.push(json);
   });
-  // Putting chunk data into shared parent data for qdrant sibling job to use
-  await updateParentData(job.parent.id, "unstructuredChunks", chunkJsons);
   console.log(`===\tFinished ingesting document ${filepath}`);
+  return chunkJsons;
 }
 
 export const qdrantHandler = async (job) => {
-
   console.log("===\tInserting chunks into Qdrant");
 
   // Create collection
   let created_collection = await qdrant.create_collection_if_not_exists(COLLECTION_NAME);
 
-  let parentData = await getParentData(job.parent.id);
-  let chunkJsons = parentData.unstructuredChunks;
-  
+  // unstructured job is child of qdrant job
+  let unstructuredChunks = Object.values(await job.getChildrenValues())[0];
+
   // Put chunks in collection
   if (created_collection){
-    chunkJsons.forEach(async (chunkJson) => {
+    unstructuredChunks.forEach(async (chunkJson) => {
 
       // convert to Chunk object
       let chunkObj = JSON.parse(chunkJson);
@@ -107,8 +84,9 @@ export const addNewFiles = async (files) => {
       name: 'addFile',
       queueName: parentQueueName,
       children: [
-        { name: 'unstructured', data: {filepath: file}, queueName: unstructuredQueueName },
-        { name: 'qdrant', queueName: qdrantQueueName },
+        { name: 'qdrant', queueName: qdrantQueueName, children: [
+          { name: 'unstructured', data: {filepath: file}, queueName: unstructuredQueueName }
+        ]}
       ]
     });
   });

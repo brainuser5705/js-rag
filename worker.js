@@ -1,4 +1,4 @@
-import { Worker, Queue } from "bullmq";
+import { Worker } from "bullmq";
 import { 
   addFile,
   unstructuredHandler,
@@ -10,7 +10,6 @@ import {
 } from "./queue.js";
 
 const jobHandlers = {
-  // uploadDocument: uploadDocument,
   addFile: addFile,
   unstructured: unstructuredHandler,
   qdrant: qdrantHandler
@@ -22,7 +21,7 @@ const processJob = async (job) => {
   const handler = jobHandlers[job.name];
 
   if (handler){
-    await handler(job);
+    return await handler(job);
   }
 
 };
