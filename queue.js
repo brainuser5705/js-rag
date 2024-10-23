@@ -19,13 +19,11 @@ const UNSTRUCTURED_API_KEY = process.env.UNSTRUCTURED_API_KEY;
 const LM_STUDIOS_SERVER_URL = process.env.LM_STUDIOS_SERVER_URL;
 
 var unstructured = new Unstructured(UNSTRUCTURED_API_KEY);
-var embeddingModel = new EmbeddingModel(LM_STUDIOS_SERVER_URL);
+var embeddingModel = new EmbeddingModel(LM_STUDIOS_SERVER_URL, 384);
 var qdrant = new Qdrant(embeddingModel);
 
 const UPLOAD_DIR = "data/";
 const COLLECTION_NAME = "test";
-
-const parentQueue = new Queue(parentQueueName);
 
 export const addFile = async(job) => {
   console.log("Finished parent job");
@@ -55,26 +53,18 @@ export const qdrantHandler = async (job) => {
 
   // Put chunks in collection
   if (created_collection){
-    unstructuredChunks.forEach(async (chunkJson) => {
-
-      // convert to Chunk object
+    
+    for await (const chunkJson of unstructuredChunks){
       let chunkObj = JSON.parse(chunkJson);
       let chunk = new Chunk(chunkObj.id, chunkObj.text, chunkObj.filepath);
 
-      try{
-        // insert into Qdrant
-        await qdrant.insert_chunk(COLLECTION_NAME, chunk);
-        console.log(`Inserted ${chunk.id} into Qdrant`);
-
-      }catch(e){
-        console.log(`Could not insert chunk ${chunk.id} into Qdrant: ${e}`);
-      }
-
-    });
-
+      await qdrant.insert_chunk(COLLECTION_NAME, chunk);
+      console.log(`Inserted ${chunk.id} into Qdrant`);
+    }
   }
 
   console.log("===\tFinished inserting into Qdrant");
+
 }
 
 export const addNewFiles = async (files) => {

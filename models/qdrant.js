@@ -21,9 +21,14 @@ class Qdrant{
             if (!exist){
                 console.log(`Creating collection ${collection_name}`);
                 await this.#client.createCollection(collection_name, {
+                    sparse_vectors: {
+                        sparse: {}, // using the named vector sparse
+                    },
                     vectors: {
-                        size: 384,
-                        distance: 'Dot'
+                        dense: {    // using named vector dense
+                            size: this.#embeddingModel.size,
+                            distance: 'Dot'
+                        }
                     }
                 });
                 console.log(`Created collection ${collection_name}`);
@@ -41,29 +46,32 @@ class Qdrant{
 
     insert_chunk(collection_name, chunk){
 
-        return new Promise((resolve, reject) => {
+        return new Promise(async (resolve, reject) => {
+            let embedding = await this.#embeddingModel.getEmbedding(chunk.text);
+
             let chunkPointStruct = {
                 id: chunk.id,
-                vector: this.#embeddingModel.getEmbedding(chunk.text), // embedding,
+                vector:  { dense: embedding },
                 payload: {
                     text: chunk.text,
                     filepath: chunk.filepath
                 }
-            }
+            };
     
             try{
-                this.#client.upsert(
+                await this.#client.upsert(
                     collection_name,
                     {
                         wait: true,
                         points: [ chunkPointStruct ]
                     }
-                )
+                );
                 resolve("Passed");
             }catch(e){
                 reject(e);
             }
         });
+        
 
     }
 
@@ -72,8 +80,10 @@ class Qdrant{
         return new Promise(async (resolve, reject) => {
 
             try{
-                let hits = await this.#client.search(collection_name, {
-                    vector: this.#embeddingModel.getEmbedding(query),
+                let hits = await this.#client.query(collection_name, {
+                    query: {
+                        dense: await this.#embeddingModel.getEmbedding(query)
+                    },
                     limit: 3
                 });
                 resolve(hits);
